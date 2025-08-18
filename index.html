@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>KNB Bank</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: white;
+            color: purple;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 2px solid purple;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input, textarea {
+            padding: 8px;
+            margin: 5px 0;
+            width: 100%;
+            border: 1px solid purple;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: purple;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #660066;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .hidden {
+            display: none;
+        }
+        #userInfo {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid purple;
+            border-radius: 5px;
+        }
+        .tab-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-buttons button {
+            width: auto;
+        }
+        .active-tab {
+            background-color: #660066;
+        }
+        .notification {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+        .success {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .error {
+            background-color: #f44336;
+            color: white;
+        }
+        .card-number-display {
+            background-color: #f0e6ff;
+            border: 2px solid purple;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .request-list {
+            margin-top: 20px;
+            border: 1px solid purple;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .request-item {
+            background-color: #f0e6ff;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        .button-group button {
+            flex: 1;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Értesítések konténere -->
+    <div id="notification" class="notification"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>KNB Bank</h1>
+            <p>Üdvözöljük a KNB Bankban! - A Te Jukasgaras (JG) Bankod</p>
+        </div>
+
+        <div id="loadingScreen" class="loading">
+            <h3>Kapcsolódás az adatbázishoz...</h3>
+        </div>
+
+        <div id="authForms" class="hidden">
+            <div class="tab-buttons">
+                <button onclick="showTab('loginForm')" id="loginTab">Bejelentkezés</button>
+                <button onclick="showTab('registrationForm')" id="registrationTab">Regisztráció</button>
+            </div>
+
+            <div id="registrationSuccess" class="hidden">
+                <div class="success-message">
+                    <h3>Sikeres Regisztráció! 🎉</h3>
+                    <p>Kérjük, jegyezd fel az alábbi adatokat:</p>
+                </div>
+                <div class="card-number-display">
+                    <p>A Te kártyaszámod:</p>
+                    <h2 id="newCardNumberDisplay" style="color: #660066; font-size: 2em;"></h2>
+                    <p>Ezzel a kártyaszámmal és a megadott PIN kóddal tudsz bejelentkezni.</p>
+                </div>
+                <button onclick="showTab('loginForm')" style="margin-top: 20px;">Tovább a bejelentkezéshez</button>
+            </div>
+
+            <div id="loginForm">
+                <h2>Bejelentkezés</h2>
+                <div class="form-group">
+                    <input type="text" id="cardNumber" placeholder="Kártyaszám">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="pin" placeholder="PIN kód">
+                </div>
+                <button onclick="login()">Bejelentkezés</button>
+            </div>
+
+            <div id="registrationForm" class="hidden">
+                <h2>Regisztráció</h2>
+                <div class="form-group">
+                    <input type="text" id="regName" placeholder="Teljes név">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="regPin" placeholder="PIN kód (4 számjegy)">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="regPinConfirm" placeholder="PIN kód megerősítése">
+                </div>
+                <button onclick="register()">Regisztráció</button>
+            </div>
+        </div>
+
+        <div id="bankInterface" class="hidden">
+            <div id="userInfo">
+                <h3>Felhasználói információk</h3>
+                <p>Név: <span id="displayName"></span></p>
+                <p>Kártyaszám: <span id="displayCardNumber"></span></p>
+                <p>Egyenleg: <span id="balance"></span> JG</p>
+            </div>
+
+            <div id="userTabs" class="tab-buttons">
+                <button onclick="showBankTab('transferForm')" id="transferTabBtn">Átutalás</button>
+                <button onclick="showBankTab('requestForm')" id="requestTabBtn">Pénz kérése</button>
+            </div>
+
+            <div id="transferForm">
+                <h3>Átutalás</h3>
+                <div class="form-group">
+                    <input type="text" id="recipientCard" placeholder="Címzett kártyaszáma">
+                </div>
+                <div class="form-group">
+                    <input type="number" id="amount" placeholder="Összeg (JG)">
+                </div>
+                <button onclick="transfer()">Átutalás</button>
+            </div>
+
+            <div id="requestForm" class="hidden">
+                <h3>Pénz kérése az Admintól</h3>
+                <div class="form-group">
+                    <input type="number" id="requestAmount" placeholder="Kért összeg (JG)">
+                </div>
+                <div class="form-group">
+                    <textarea id="requestReason" placeholder="Kérés indoklása" rows="3"></textarea>
+                </div>
+                <button onclick="requestMoney()">Kérés küldése</button>
+            </div>
+
+            <div id="adminPanel" class="hidden">
+                <h3>Admin Panel</h3>
+                <div class="form-group">
+                    <input type="text" id="userCardNumber" placeholder="Felhasználó kártyaszáma">
+                </div>
+                <div class="form-group">
+                    <input type="number" id="adminAmount" placeholder="Összeg (JG)">
+                </div>
+                <button onclick="adminTransfer()">Pénz küldése</button>
+                <button onclick="viewUserAccount()">Felhasználó megtekintése</button>
+
+                <div id="moneyRequests" class="request-list">
+                    <h3>Beérkezett kérések</h3>
+                    <div id="requestsList"></div>
+                </div>
+            </div>
+
+            <button onclick="logout()" style="margin-top: 20px;">Kijelentkezés</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.38.0/umd/index.js"></script>
+    <script>
+        // Supabase konfiguráció
+        const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        let currentUser = null;
+
+        // Inicializálás
+        window.addEventListener('load', async () => {
+            await initializeApp();
+        });
+
+        async function initializeApp() {
+            try {
+                // Ellenőrizzük, hogy létezik-e az admin felhasználó
+                const { data: adminUser } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('card_number', 'admin')
+                    .single();
+
+                if (!adminUser) {
+                    // Admin létrehozása, ha nem létezik
+                    await supabase
+                        .from('users')
+                        .insert({
+                            card_number: 'admin',
+                            pin: '5956',
+                            name: 'Admin',
+                            balance: 999999999,
+                            is_admin: true
+                        });
+                }
+
+                document.getElementById('loadingScreen').classList.add('hidden');
+                document.getElementById('authForms').classList.remove('hidden');
+                showTab('loginForm');
+            } catch (error) {
+                showNotification('Hiba az adatbázis kapcsolatnál: ' + error.message, 'error');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification ' + type;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 4000);
+        }
+
+        function showTab(tabName) {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registrationForm').classList.add('hidden');
+            document.getElementById('registrationSuccess').classList.add('hidden');
+            document.getElementById(tabName).classList.remove('hidden');
+
+            document.getElementById('loginTab').classList.remove('active-tab');
+            document.getElementById('registrationTab').classList.remove('active-tab');
+            if (tabName !== 'registrationSuccess') {
+                document.getElementById(tabName === 'loginForm' ? 'loginTab' : 'registrationTab').classList.add('active-tab');
+            }
+        }
+
+        function showBankTab(tabName) {
+            document.getElementById('transferForm').classList.add('hidden');
+            document.getElementById('requestForm').classList.add('hidden');
+            document.getElementById(tabName).classList.remove('hidden');
+
+            document.getElementById('transferTabBtn').classList.remove('active-tab');
+            document.getElementById('requestTabBtn').classList.remove('active-tab');
+            document.getElementById(tabName === 'transferForm' ? 'transferTabBtn' : 'requestTabBtn').classList.add('active-tab');
+        }
+
+        async function register() {
+            const name = document.getElementById('regName').value;
+            const pin = document.getElementById('regPin').value;
+            const pinConfirm = document.getElementById('regPinConfirm').value;
+
+            if (!name || !pin || !pinConfirm) {
+                showNotification('Kérjük, tölts ki minden mezőt!', 'error');
+                return;
+            }
+
+            if (pin !== pinConfirm) {
+                showNotification('A PIN kódok nem egyeznek!', 'error');
+                return;
+            }
+
+            if (pin.length !== 4 || isNaN(pin)) {
+                showNotification('A PIN kódnak 4 számjegyből kell állnia!', 'error');
+                return;
+            }
+
+            try {
+                // Új kártyaszám generálása
+                let newCardNumber;
+                let attempts = 0;
+                do {
+                    newCardNumber = Math.floor(Math.random() * 1000) + 1;
+                    const { data: existingUser } = await supabase
+                        .from('users')
+                        .select('card_number')
+                        .eq('card_number', newCardNumber)
+                        .single();
+                    
+                    if (!existingUser) break;
+                    attempts++;
+                } while (attempts < 10);
+
+                if (attempts >= 10) {
+                    showNotification('Hiba a kártyaszám generálásnál!', 'error');
+                    return;
+                }
+
+                // Felhasználó beszúrása az adatbázisba
+                const { error } = await supabase
+                    .from('users')
+                    .insert({
+                        card_number: newCardNumber.toString(),
+                        pin: pin,
+                        name: name,
+                        balance: 0,
+                        is_admin: false
+                    });
+
+                if (error) {
+                    showNotification('Regisztrációs hiba: ' + error.message, 'error');
+                    return;
+                }
+
+                document.getElementById('newCardNumberDisplay').textContent = newCardNumber;
+                showTab('registrationSuccess');
+                
+                // Form mezők törlése
+                document.getElementById('regName').value = '';
+                document.getElementById('regPin').value = '';
+                document.getElementById('regPinConfirm').value = '';
+
+            } catch (error) {
+                showNotification('Hiba a regisztráció során: ' + error.message, 'error');
+            }
+        }
+
+        async function login() {
+            const cardNumber = document.getElementById('cardNumber').value;
+            const pin = document.getElementById('pin').value;
+
+            if (!cardNumber || !pin) {
+                showNotification('Kérjük, add meg a kártyaszámod és PIN kódodat!', 'error');
+                return;
+            }
+
+            try {
+                const { data: user, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('card_number', cardNumber)
+                    .eq('pin', pin)
+                    .single();
+
+                if (error || !user) {
+                    showNotification('Hibás kártyaszám vagy PIN kód!', 'error');
+                    return;
+                }
+
+                currentUser = user;
+                showBankInterface(user.is_admin);
+                showNotification('Sikeres bejelentkezés!', 'success');
+
+            } catch (error) {
+                showNotification('Bejelentkezési hiba: ' + error.message, 'error');
+            }
+        }
+
+        function showBankInterface(isAdmin) {
+            document.getElementById('authForms').classList.add('hidden');
+            document.getElementById('bankInterface').classList.remove('hidden');
+            if (isAdmin) {
+                document.getElementById('adminPanel').classList.remove('hidden');
+                loadMoneyRequests();
+            } else {
+                document.getElementById('userTabs').classList.remove('hidden');
+            }
+            updateUserInfo();
+            showBankTab('transferForm');
+        }
+
+        function updateUserInfo() {
+            document.getElementById('displayName').textContent = currentUser.name;
+            document.getElementById('displayCardNumber').textContent = currentUser.card_number;
+            document.getElementById('balance').textContent = currentUser.balance;
+        }
+
+        async function transfer() {
+            const recipientCard = document.getElementById('recipientCard').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+
+            if (!recipientCard || amount <= 0 || isNaN(amount)) {
+                showNotification('Kérjük, adj meg érvényes adatokat!', 'error');
+                return;
+            }
+
+            try {
+                // Címzett ellenőrzése
+                const { data: recipient } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('card_number', recipientCard)
+                    .single();
+
+                if (!recipient) {
+                    showNotification('Címzett nem található!', 'error');
+                    return;
+                }
+
+                // Egyenleg ellenőrzése (admin-nak nincs korlátozás)
+                if (!currentUser.is_admin && currentUser.balance < amount) {
+                    showNotification('Nincs elegendő fedezet!', 'error');
+                    return;
+                }
+
+                // Küldő egyenlegének frissítése (ha nem admin)
+                if (!currentUser.is_admin) {
+                    const { error: senderError } = await supabase
+                        .from('users')
+                        .update({ balance: currentUser.balance - amount })
+                        .eq('card_number', currentUser.card_number);
+
+                    if (senderError) {
+                        showNotification('Hiba az átutalásnál!', 'error');
+                        return;
+                    }
+                    currentUser.balance -= amount;
+                }
+
+                // Címzett egyenlegének frissítése
+                const { error: recipientError } = await supabase
+                    .from('users')
+                    .update({ balance: recipient.balance + amount })
+                    .eq('card_number', recipientCard);
+
+                if (recipientError) {
+                    showNotification('Hiba az átutalásnál!', 'error');
+                    return;
+                }
+
+                updateUserInfo();
+                showNotification(`Sikeres átutalás: ${amount} JG küldve ${recipient.name} részére!`, 'success');
+                
+                // Form törlése
+                document.getElementById('recipientCard').value = '';
+                document.getElementById('amount').value = '';
+
+            } catch (error) {
+                showNotification('Átutalási hiba: ' + error.message, 'error');
+            }
+        }
+
+        async function requestMoney() {
+            const amount = parseFloat(document.getElementById('requestAmount').value);
+            const reason = document.getElementById('requestReason').value;
+
+            if (amount <= 0 || isNaN(amount) || !reason.trim()) {
+                showNotification('Kérjük, adj meg érvényes összeget és indoklást!', 'error');
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('money_requests')
+                    .insert({
+                        user_id: currentUser.card_number,
+                        user_name: currentUser.name,
+                        amount: amount,
+                        reason: reason,
+                        status: 'pending'
+                    });
+
+                if (error) {
+                    showNotification('Hiba a kérés küldésénél!', 'error');
+                    return;
+                }
+
+                showNotification('Kérés sikeresen elküldve az adminnak!', 'success');
+                document.getElementById('requestAmount').value = '';
+                document.getElementById('requestReason').value = '';
+
+            } catch (error) {
+                showNotification('Hiba: ' + error.message, 'error');
+            }
+        }
+
+        async function adminTransfer() {
+            const userCard = document.getElementById('userCardNumber').value;
+            const amount = parseFloat(document.getElementById('adminAmount').value);
+
+            if (!userCard || amount <= 0 || isNaN(amount)) {
+                showNotification('Kérjük, adj meg érvényes adatokat!', 'error');
+                return;
+            }
+
+            try {
+                const { data: user } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('card_number', userCard)
+                    .single();
+
+                if (!user) {
+                    showNotification('Felhasználó nem található!', 'error');
+                    return;
+                }
+
+                const { error } = await supabase
+                    .from('users')
+                    .update({ balance: user.balance + amount })
+                    .eq('card_number', userCard);
+
+                if (error) {
+                    showNotification('Hiba az átutalásnál!', 'error');
+                    return;
+                }
+
+                showNotification(`Sikeres átutalás: ${amount} JG küldve ${user.name} részére!`, 'success');
+                document.getElementById('userCardNumber').value = '';
+                document.getElementById('adminAmount').value = '';
+
+            } catch (error) {
+                showNotification('Admin átutalási hiba: ' + error.message, 'error');
+            }
+        }
+
+        async function viewUserAccount() {
+            const userCard = document.getElementById('userCardNumber').value;
+
+            if (!userCard) {
+                showNotification('Add meg a felhasználó kártyaszámát!', 'error');
+                return;
+            }
+
+            try {
+                const { data: user } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('card_number', userCard)
+                    .single();
+
+                if (!user) {
+                    showNotification('Felhasználó nem található!', 'error');
+                    return;
+                }
+
+                showNotification(`${user.name} - Egyenleg: ${user.balance} JG`, 'success');
+
+            } catch (error) {
+                showNotification('Hiba: ' + error.message, 'error');
+            }
+        }
+
+        async function loadMoneyRequests() {
+            try {
+                const { data: requests, error } = await supabase
+                    .from('money_requests')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    showNotification('Hiba a kérések betöltésénél!', 'error');
+                    return;
+                }
+
+                updateRequestsList(requests || []);
+
+            } catch (error) {
+                showNotification('Hiba: ' + error.message, 'error');
+            }
+        }
+
+        function updateRequestsList(requests) {
+            const requestsContainer = document.getElementById('requestsList');
+            
+            if (requests.length === 0) {
+                requestsContainer.innerHTML = '<p>Nincs függőben lévő kérés.</p>';
+                return;
+            }
+
+            let html = '';
+            requests.forEach(request => {
+                html += `
+                    <div class="request-item">
+                        <p><strong>Felhasználó:</strong> ${request.user_name} (${request.user_id})</p>
+                        <p><strong>Összeg:</strong> ${request.amount} JG</p>
+                        <p><strong>Indoklás:</strong> ${request.reason}</p>
+                        <p><strong>Dátum:</strong> ${new Date(request.created_at).toLocaleString('hu-HU')}</p>
+                        <div class="button-group">
+                            <button onclick="handleRequest(${request.id}, true)">Elfogadás</button>
+                            <button onclick="handleRequest(${request.id}, false)">Elutasítás</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            requestsContainer.innerHTML = html;
+        }
+
+        async function handleRequest(requestId, approved) {
+            try {
+                // Kérés adatainak lekérése
+                const { data: request } = await supabase
+                    .from('money_requests')
+                    .select('*')
+                    .eq('id', requestId)
+                    .single();
+
+                if (!request) {
+                    showNotification('Kérés nem található!', 'error');
+                    return;
+                }
+
+                if (approved) {
+                    // Felhasználó egyenlegének frissítése
+                    const { data: user } = await supabase
+                        .from('users')
+                        .select('balance')
+                        .eq('card_number', request.user_id)
+                        .single();
+
+                    await supabase
+                        .from('users')
+                        .update({ balance: user.balance + request.amount })
+                        .eq('card_number', request.user_id);
+
+                    showNotification(`${request.amount} JG jóváírva ${request.user_name} számára!`, 'success');
+                } else {
+                    showNotification('Kérés elutasítva!', 'error');
+                }
+
+                // Kérés státuszának frissítése
+                await supabase
+                    .from('money_requests')
+                    .update({ status: approved ? 'approved' : 'rejected' })
+                    .eq('id', requestId);
+
+                // Kérések listájának frissítése
+                loadMoneyRequests();
+
+            } catch (error) {
+                showNotification('Hiba a kérés feldolgozásánál: ' + error.message, 'error');
+            }
+        }
+
+        async function logout() {
+            currentUser = null;
+            document.getElementById('bankInterface').classList.add('hidden');
+            document.getElementById('authForms').classList.remove('hidden');
+            document.getElementById('adminPanel').classList.add('hidden');
+            document.getElementById('userTabs').classList.add('hidden');
+            document.getElementById('cardNumber').value = '';
+            document.getElementById('pin').value = '';
+            showTab('loginForm');
+            showNotification('Sikeresen kijelentkeztél!', 'success');
+        }
+
+        // Kezdeti beállítás
+        showTab('loginForm');
+    </script>
+</body>
+</html>0
