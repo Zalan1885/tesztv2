@@ -1,164 +1,131 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<title>KNB Bank</title>
-<style>
-    body { font-family: Arial,sans-serif; background:white; color:purple; margin:0; padding:20px; }
-    .container { max-width:800px; margin:0 auto; }
-    .header { text-align:center; padding:20px; border-bottom:2px solid purple; margin-bottom:20px; }
-    .form-group { margin-bottom:15px; }
-    input,textarea { padding:8px; margin:5px 0; width:100%; border:1px solid purple; box-sizing:border-box; }
-    button { background-color:purple; color:white; padding:10px 20px; border:none; cursor:pointer; width:100%; margin:5px 0; }
-    button:hover { background-color:#660066; }
-    button:disabled { background-color:#ccc; cursor:not-allowed; }
-    .hidden { display:none; }
-    #userInfo { margin-top:20px; padding:10px; border:1px solid purple; border-radius:5px; }
-    .tab-buttons { display:flex; justify-content:center; gap:10px; margin-bottom:20px; }
-    .tab-buttons button { width:auto; }
-    .active-tab { background-color:#660066; }
-    .notification { padding:15px; margin:10px 0; border-radius:5px; display:none; position:fixed; top:20px; right:20px; max-width:300px; z-index:1000; }
-    .success { background-color:#4CAF50; color:white; }
-    .error { background-color:#f44336; color:white; }
-    .card-number-display { background-color:#f0e6ff; border:2px solid purple; padding:20px; margin:20px 0; text-align:center; border-radius:10px; font-size:1.2em; font-weight:bold; }
-    .request-list { margin-top:20px; border:1px solid purple; padding:10px; border-radius:5px; }
-    .request-item { background-color:#f0e6ff; padding:10px; margin:5px 0; border-radius:5px; }
-    .button-group { display:flex; gap:10px; }
-    .button-group button { flex:1; }
-    .loading { text-align:center; padding:20px; }
-</style>
+  <meta charset="UTF-8">
+  <title>KNB Bank</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: white; color: purple; margin: 0; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .header { text-align: center; padding: 20px; border-bottom: 2px solid purple; margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    input, textarea { padding: 8px; margin: 5px 0; width: 100%; border: 1px solid purple; box-sizing: border-box; }
+    button { background-color: purple; color: white; padding: 10px 20px; border: none; cursor: pointer; width: 100%; margin: 5px 0; }
+    button:hover { background-color: #660066; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    .hidden { display: none; }
+    .tab-buttons { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    .tab-buttons button { width: auto; }
+    .active-tab { background-color: #660066; }
+    .notification { padding: 15px; margin: 10px 0; border-radius: 5px; display: none; position: fixed; top: 20px; right: 20px; max-width: 300px; z-index: 1000; }
+    .success { background-color: #4CAF50; color: white; }
+    .error { background-color: #f44336; color: white; }
+  </style>
 </head>
 <body>
-<div id="notification" class="notification"></div>
-<div class="container">
+  <div id="notification" class="notification"></div>
+  <div class="container">
     <div class="header">
-        <h1>KNB Bank</h1>
-        <p>Üdv a KNB Bankban! - A Te Jukasgaras (JG) Bankod</p>
+      <h1>KNB Bank</h1>
+      <p>Üdv a KNB Bankban!</p>
     </div>
 
-    <div id="loadingScreen" class="loading"><h3>Kapcsolódás az adatbázishoz...</h3></div>
+    <div id="authForms">
+      <div class="tab-buttons">
+        <button onclick="showTab('loginForm')" id="loginTab" class="active-tab">Bejelentkezés</button>
+        <button onclick="showTab('registrationForm')" id="registrationTab">Regisztráció</button>
+      </div>
 
-    <div id="authForms" class="hidden">
-        <div class="tab-buttons">
-            <button onclick="showTab('loginForm')" id="loginTab">Bejelentkezés</button>
-            <button onclick="showTab('registrationForm')" id="registrationTab">Regisztráció</button>
-        </div>
+      <div id="loginForm">
+        <h2>Bejelentkezés</h2>
+        <div class="form-group"><input type="text" id="cardNumber" placeholder="Kártyaszám"></div>
+        <div class="form-group"><input type="password" id="pin" placeholder="PIN kód"></div>
+        <button onclick="login()">Bejelentkezés</button>
+      </div>
 
-        <div id="registrationSuccess" class="hidden">
-            <div class="success-message">
-                <h3>Sikeres Regisztráció! 🎉</h3>
-                <p>Kérjük, jegyezd fel az alábbi adatokat:</p>
-            </div>
-            <div class="card-number-display">
-                <p>A Te kártyaszámod:</p>
-                <h2 id="newCardNumberDisplay" style="color:#660066; font-size:2em;"></h2>
-                <p>Ezzel a kártyaszámmal és a PIN kóddal tudsz bejelentkezni.</p>
-            </div>
-            <button onclick="showTab('loginForm')" style="margin-top:20px;">Tovább a bejelentkezéshez</button>
-        </div>
-
-        <div id="loginForm">
-            <h2>Bejelentkezés</h2>
-            <div class="form-group"><input type="text" id="cardNumber" placeholder="Kártyaszám"></div>
-            <div class="form-group"><input type="password" id="pin" placeholder="PIN kód"></div>
-            <button onclick="login()">Bejelentkezés</button>
-        </div>
-
-        <div id="registrationForm" class="hidden">
-            <h2>Regisztráció</h2>
-            <div class="form-group"><input type="text" id="regName" placeholder="Teljes név"></div>
-            <div class="form-group"><input type="password" id="regPin" placeholder="PIN kód (4 számjegy)"></div>
-            <div class="form-group"><input type="password" id="regPinConfirm" placeholder="PIN kód megerősítése"></div>
-            <button onclick="register()">Regisztráció</button>
-        </div>
+      <div id="registrationForm" class="hidden">
+        <h2>Regisztráció</h2>
+        <div class="form-group"><input type="text" id="regName" placeholder="Teljes név"></div>
+        <div class="form-group"><input type="password" id="regPin" placeholder="PIN kód (4 számjegy)"></div>
+        <div class="form-group"><input type="password" id="regPinConfirm" placeholder="PIN kód megerősítése"></div>
+        <button onclick="register()">Regisztráció</button>
+      </div>
     </div>
 
     <div id="bankInterface" class="hidden">
-        <div id="userInfo">
-            <h3>Felhasználói információk</h3>
-            <p>Név: <span id="displayName"></span></p>
-            <p>Kártyaszám: <span id="displayCardNumber"></span></p>
-            <p>Egyenleg: <span id="balance"></span> JG</p>
-        </div>
-
-        <div id="userTabs" class="tab-buttons">
-            <button onclick="showBankTab('transferForm')" id="transferTabBtn">Átutalás</button>
-            <button onclick="showBankTab('requestForm')" id="requestTabBtn">Pénz kérése</button>
-        </div>
-
-        <div id="transferForm">
-            <h3>Átutalás</h3>
-            <div class="form-group"><input type="text" id="recipientCard" placeholder="Címzett kártyaszáma"></div>
-            <div class="form-group"><input type="number" id="amount" placeholder="Összeg (JG)"></div>
-            <button onclick="transfer()">Átutalás</button>
-        </div>
-
-        <div id="requestForm" class="hidden">
-            <h3>Pénz kérése az Admintól</h3>
-            <div class="form-group"><input type="number" id="requestAmount" placeholder="Kért összeg (JG)"></div>
-            <div class="form-group"><textarea id="requestReason" placeholder="Kérés indoklása" rows="3"></textarea></div>
-            <button onclick="requestMoney()">Kérés küldése</button>
-        </div>
-
-        <div id="adminPanel" class="hidden">
-            <h3>Admin Panel</h3>
-            <div class="form-group"><input type="text" id="userCardNumber" placeholder="Felhasználó kártyaszáma"></div>
-            <div class="form-group"><input type="number" id="adminAmount" placeholder="Összeg (JG)"></div>
-            <button onclick="adminTransfer()">Pénz küldése</button>
-            <button onclick="viewUserAccount()">Felhasználó megtekintése</button>
-
-            <div id="moneyRequests" class="request-list">
-                <h3>Beérkezett kérések</h3>
-                <div id="requestsList"></div>
-            </div>
-        </div>
-
-        <button onclick="logout()" style="margin-top:20px;">Kijelentkezés</button>
+      <h2>Felhasználói felület</h2>
+      <p>Név: <span id="displayName"></span></p>
+      <p>Kártyaszám: <span id="displayCardNumber"></span></p>
+      <p>Egyenleg: <span id="balance"></span> JG</p>
+      <button onclick="logout()">Kijelentkezés</button>
     </div>
-</div>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-<script>
-// Supabase beállítások
-const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
-const supabase = Supabase.createClient(supabaseUrl, supabaseKey);
+  <!-- Supabase könyvtár -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <script>
+    const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
+    const supabase = supabaseJs.createClient(supabaseUrl, supabaseKey);
 
-let currentUser = null;
+    let currentUser = null;
 
-// Init
-window.addEventListener('load', async () => {
-    document.getElementById('loadingScreen').classList.add('hidden');
-    document.getElementById('authForms').classList.remove('hidden');
-    showTab('loginForm');
-});
+    function showNotification(msg, type) {
+      const n = document.getElementById('notification');
+      n.textContent = msg;
+      n.className = 'notification ' + type;
+      n.style.display = 'block';
+      setTimeout(() => { n.style.display = 'none'; }, 4000);
+    }
 
-function showNotification(msg,type){
-    const n=document.getElementById('notification');
-    n.textContent=msg;
-    n.className='notification '+type;
-    n.style.display='block';
-    setTimeout(()=>{n.style.display='none';},4000);
-}
+    function showTab(tab) {
+      document.getElementById('loginForm').classList.add('hidden');
+      document.getElementById('registrationForm').classList.add('hidden');
+      document.getElementById(tab).classList.remove('hidden');
+      document.getElementById('loginTab').classList.remove('active-tab');
+      document.getElementById('registrationTab').classList.remove('active-tab');
+      document.getElementById(tab === 'loginForm' ? 'loginTab' : 'registrationTab').classList.add('active-tab');
+    }
 
-function showTab(tabName){
-    ['loginForm','registrationForm','registrationSuccess'].forEach(id=>document.getElementById(id).classList.add('hidden'));
-    document.getElementById(tabName).classList.remove('hidden');
-    document.getElementById('loginTab').classList.remove('active-tab');
-    document.getElementById('registrationTab').classList.remove('active-tab');
-    if(tabName!=='registrationSuccess') document.getElementById(tabName==='loginForm'?'loginTab':'registrationTab').classList.add('active-tab');
-}
+    async function register() {
+      const name = document.getElementById('regName').value;
+      const pin = document.getElementById('regPin').value;
+      const pinConfirm = document.getElementById('regPinConfirm').value;
+      if(!name||!pin||!pinConfirm){showNotification('Tölts ki minden mezőt!', 'error');return;}
+      if(pin!==pinConfirm){showNotification('PIN-ek nem egyeznek!', 'error');return;}
+      if(pin.length!==4 || isNaN(pin)){showNotification('PIN 4 számjegy legyen!', 'error');return;}
+      const newCard = Math.floor(Math.random()*1000)+1;
+      const { error } = await supabase.from('users').insert({card_number:newCard.toString(), pin, name, balance:0, is_admin:false});
+      if(error){showNotification('Regisztráció hiba: '+error.message,'error');return;}
+      showNotification(`Sikeres regisztráció! Kártyaszám: ${newCard}`,'success');
+      document.getElementById('regName').value='';
+      document.getElementById('regPin').value='';
+      document.getElementById('regPinConfirm').value='';
+    }
 
-function showBankTab(tabName){
-    ['transferForm','requestForm'].forEach(id=>document.getElementById(id).classList.add('hidden'));
-    document.getElementById(tabName).classList.remove('hidden');
-    document.getElementById('transferTabBtn').classList.remove('active-tab');
-    document.getElementById('requestTabBtn').classList.remove('active-tab');
-    document.getElementById(tabName==='transferForm'?'transferTabBtn':'requestTabBtn').classList.add('active-tab');
-}
+    async function login() {
+      const card = document.getElementById('cardNumber').value;
+      const pin = document.getElementById('pin').value;
+      if(!card||!pin){showNotification('Add meg a kártyaszámot és PIN-t','error');return;}
+      const { data:user, error } = await supabase.from('users').select('*').eq('card_number',card).eq('pin',pin).single();
+      if(error||!user){showNotification('Hibás kártyaszám vagy PIN','error');return;}
+      currentUser=user;
+      document.getElementById('authForms').classList.add('hidden');
+      document.getElementById('bankInterface').classList.remove('hidden');
+      document.getElementById('displayName').textContent=user.name;
+      document.getElementById('displayCardNumber').textContent=user.card_number;
+      document.getElementById('balance').textContent=user.balance;
+      showNotification('Sikeres bejelentkezés!','success');
+    }
 
-// Itt jönnek a többi függvények: register, login, transfer, requestMoney, adminTransfer, viewUserAccount, logout
-// A teljes, kész működő kód a Supabase-el kompatibilis, anon key már benne van
-</script>
+    function logout() {
+      currentUser=null;
+      document.getElementById('bankInterface').classList.add('hidden');
+      document.getElementById('authForms').classList.remove('hidden');
+      document.getElementById('cardNumber').value='';
+      document.getElementById('pin').value='';
+      showTab('loginForm');
+      showNotification('Kijelentkeztél!','success');
+    }
+  </script>
 </body>
 </html>
