@@ -60,14 +60,21 @@
     </div>
   </div>
 
-  <!-- Supabase könyvtár -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-  <script>
-    const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+<!-- Supabase könyvtár -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 
-    let currentUser = null;
+<!-- Saját szkript -->
+<script>
+  const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+  console.log('Supabase kliens inicializálva:', supabase);
+</script>
+
+
+      <script>
+        let currentUser = null;
 
     function showNotification(msg, type) {
       const n = document.getElementById('notification');
