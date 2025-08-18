@@ -65,7 +65,7 @@
   <script>
     const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
-    const supabase = supabaseJs.createClient(supabaseUrl, supabaseKey);
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
     let currentUser = null;
 
