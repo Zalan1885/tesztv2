@@ -5,7 +5,13 @@
   <title>KNB Bank</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --brand: purple; --brand-dark:#660066; }
+    :root { 
+      --brand: purple; 
+      --brand-dark:#660066; 
+      --success: #2e7d32;
+      --error: #c62828;
+      --warning: #f57c00;
+    }
     body { font-family: Arial, sans-serif; background:#fff; color:var(--brand); margin:0; padding:20px; }
     .container { max-width:1200px; margin:0 auto; }
     .header { text-align:center; padding:20px; border-bottom:2px solid var(--brand); margin-bottom:20px; }
@@ -18,10 +24,13 @@
     }
     button:hover { background:var(--brand-dark); }
     button:disabled { background:#bbb; cursor:not-allowed; }
+    button.small { width:auto; padding:6px 12px; font-size:0.9em; }
+    button.quick-amount { width:80px; margin:4px; background:var(--warning); }
+    button.quick-amount:hover { background:#e65100; }
     .hidden { display:none; }
     .row { display:flex; gap:20px; }
     .col { flex:1; }
-    #userInfo { padding:12px; border:1px solid var(--brand); border-radius:6px; }
+    #userInfo { padding:12px; border:1px solid var(--brand); border-radius:6px; position: relative; }
     .tab-buttons { display:flex; gap:10px; margin:16px 0; }
     .tab-buttons button { flex:1; }
     .panel { padding:12px; border:1px solid var(--brand); border-radius:6px; background:#fafafa; }
@@ -31,13 +40,16 @@
       box-shadow:0 2px 4px rgba(0,0,0,.08);
     }
     .transaction-item .amount { font-weight:bold; margin:6px 0; }
-    .positive { color:#2e7d32; } .negative { color:#c62828; }
+    .positive { color:var(--success); } 
+    .negative { color:var(--error); }
     .date { color:#555; font-size:.9em; }
     .notification {
       position:fixed; top:20px; right:20px; padding:12px 16px; border-radius:6px; display:none; z-index:999;
       color:#fff;
     }
-    .success { background:#2e7d32; } .error { background:#c62828; } .info { background:#1976d2; }
+    .success { background:var(--success); } 
+    .error { background:var(--error); } 
+    .info { background:#1976d2; }
 
     /* lists */
     .list { display:flex; flex-direction:column; gap:8px; }
@@ -49,6 +61,35 @@
     .split { display:flex; gap:20px; }
     .muted { color:#666; }
     .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.85em; background:#eee; color:#333; }
+    .badge.favorite { background:gold; color:#333; }
+    
+    /* QR Code */
+    .qr-section { text-align: center; margin: 10px 0; }
+    #qrcode { margin: 10px auto; }
+    
+    /* Filters */
+    .filters { 
+      display:flex; gap:10px; margin:10px 0; flex-wrap:wrap; align-items:center;
+      padding:10px; background:#f5f5f5; border-radius:6px;
+    }
+    .filters > * { flex:1; min-width:120px; }
+    
+    /* Stats */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin:15px 0; }
+    .stat-card { 
+      background:#fff; padding:15px; border-radius:8px; border-left:4px solid var(--brand); 
+      box-shadow:0 2px 4px rgba(0,0,0,.1);
+    }
+    .stat-value { font-size:1.5em; font-weight:bold; color:var(--brand); }
+    .stat-label { font-size:0.9em; color:#666; margin-top:5px; }
+    
+    /* Favorites heart icon */
+    .heart { cursor:pointer; font-size:1.2em; user-select:none; }
+    .heart.favorited { color:red; }
+    .heart:hover { color:red; }
+    
+    /* Quick amounts */
+    .quick-amounts { display:flex; gap:8px; margin:10px 0; justify-content:center; flex-wrap:wrap; }
   </style>
 </head>
 <body>
@@ -95,19 +136,51 @@
             <p>Név: <strong id="displayName"></strong></p>
             <p>Kártyaszám: <strong id="displayCardNumber"></strong></p>
             <p>Egyenleg: <strong id="balance"></strong> JG</p>
+            
+            <!-- QR kód generátor -->
+            <div class="qr-section">
+              <button class="small" onclick="generateQR()">Alap QR kód</button>
+              <button class="small" onclick="showQRAmountInput()">QR kód összeggel</button>
+              <div id="qrAmountInput" style="display:none; margin:8px 0;">
+                <input type="number" id="qrRequestAmount" placeholder="Kért összeg (JG)" style="width:150px;">
+                <button class="small" onclick="generateQRWithSpecificAmount()">Generálás</button>
+              </div>
+              <div id="qrcode"></div>
+              <p id="qrDescription" class="muted" style="margin-top:8px;"></p>
+            </div>
+          </div>
+
+          <!-- Statisztikák -->
+          <div id="statsPanel" class="panel hidden">
+            <h3>Statisztikák</h3>
+            <div class="stats-grid" id="statsGrid"></div>
           </div>
 
           <div class="tab-buttons" id="userTabs">
             <button onclick="showUserTab('transferTab')" id="t1">Átutalás</button>
             <button onclick="showUserTab('requestTab')" id="t2">Pénz kérése</button>
             <button onclick="showUserTab('directoryTab')" id="t3">Felhasználók</button>
+            <button onclick="showUserTab('favoritesTab')" id="t4">Kedvencek</button>
+            <button onclick="showUserTab('settingsTab')" id="t5">Beállítások</button>
+            <button onclick="showUserTab('statsTab')" id="t6">Statisztikák</button>
           </div>
 
           <!-- Transfer -->
           <div id="transferTab" class="panel">
             <h3>Átutalás</h3>
-            <div class="form-group"><input type="text" id="recipientCard" placeholder="Címzett kártyaszáma"></div>
-            <div class="form-group"><input type="number" id="amount" placeholder="Összeg (JG)"></div>
+            <div class="form-group">
+              <input type="text" id="recipientCard" placeholder="Címzett kártyaszáma" list="recipientSuggestions">
+              <datalist id="recipientSuggestions"></datalist>
+            </div>
+            <div class="form-group">
+              <input type="number" id="amount" placeholder="Összeg (JG)">
+              <div class="quick-amounts">
+                <button class="quick-amount" onclick="setQuickAmount(500)">500</button>
+                <button class="quick-amount" onclick="setQuickAmount(1000)">1K</button>
+                <button class="quick-amount" onclick="setQuickAmount(2000)">2K</button>
+                <button class="quick-amount" onclick="setQuickAmount(5000)">5K</button>
+              </div>
+            </div>
             <button onclick="transfer()">Átutalás</button>
           </div>
 
@@ -122,7 +195,49 @@
           <!-- Directory -->
           <div id="directoryTab" class="panel hidden">
             <h3>Felhasználók névjegyzéke</h3>
+            <div class="form-group">
+              <input type="text" id="userSearch" placeholder="Keresés név vagy kártyaszám alapján..." oninput="filterUsers()">
+            </div>
             <div id="directoryList" class="list"></div>
+          </div>
+
+          <!-- Favorites -->
+          <div id="favoritesTab" class="panel hidden">
+            <h3>Kedvenc felhasználók</h3>
+            <div id="favoritesList" class="list"></div>
+          </div>
+
+          <!-- Settings -->
+          <div id="settingsTab" class="panel hidden">
+            <h3>Beállítások</h3>
+            
+            <div class="form-group">
+              <label>Email cím (értesítésekhez):</label>
+              <input type="email" id="userEmail" placeholder="pelda@email.com">
+              <button onclick="saveEmail()" class="small" style="margin-top:8px;">Email mentése</button>
+            </div>
+            
+            <div style="margin-top:20px;">
+              <label>
+                <input type="checkbox" id="emailNotifications" onchange="toggleEmailNotifications()">
+                Email értesítések bekapcsolása
+              </label>
+            </div>
+            
+            <div style="margin-top:20px;">
+              <h4>QR kód kezelés</h4>
+              <p class="muted">A QR kóddal mások könnyen tudnak neked pénzt küldeni. Csak olvasd be a QR kódot és add át!</p>
+              <button onclick="generateQRWithAmount()" class="small">QR kód készítése összeggel</button>
+              <div class="form-group">
+                <input type="number" id="qrAmount" placeholder="Kért összeg (JG)" style="display:none;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Tab -->
+          <div id="statsTab" class="panel hidden">
+            <h3>Részletes statisztikák</h3>
+            <div class="stats-grid" id="detailedStats"></div>
           </div>
 
           <button onclick="logout()" style="margin-top:16px;">Kijelentkezés</button>
@@ -132,6 +247,26 @@
         <div class="col" style="max-width:380px;">
           <div class="panel transactions-panel">
             <h3>Tranzakciók</h3>
+            
+            <!-- Transaction Filters -->
+            <div class="filters">
+              <select id="typeFilter" onchange="filterTransactions()">
+                <option value="">Minden típus</option>
+                <option value="transfer_sent">Küldött</option>
+                <option value="transfer_received">Kapott</option>
+                <option value="admin_credit">Admin jóváírás</option>
+                <option value="admin_debit">Admin levonás</option>
+                <option value="money_request">Pénzkérés</option>
+              </select>
+              
+              <select id="dateFilter" onchange="filterTransactions()">
+                <option value="">Minden idő</option>
+                <option value="today">Ma</option>
+                <option value="week">Ez a hét</option>
+                <option value="month">Ez a hónap</option>
+              </select>
+            </div>
+            
             <div id="transactionsList"><p class="muted">Nincsenek tranzakciók</p></div>
           </div>
         </div>
@@ -144,7 +279,7 @@
         <div class="split">
           <div class="col">
             <h3>Felhasználók (egyenleggel)</h3>
-            <div class="form-group"><input type="text" id="userSearch" placeholder="Keresés név vagy kártyaszám alapján" oninput="filterAdminUsers()" /></div>
+            <div class="form-group"><input type="text" id="adminUserSearch" placeholder="Keresés név vagy kártyaszám alapján" oninput="filterAdminUsers()" /></div>
             <div id="adminUsersList" class="list"></div>
           </div>
 
@@ -160,20 +295,33 @@
     </div>
   </div>
 
+  <!-- QR Code Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
-    /* ===== Supabase init (anon kulcs kéréssel) ===== */
+    /* ===== Supabase init ===== */
     const supabaseUrl = 'https://jeorhpbjbmfuyqkaztgc.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implb3JocGJqYm1mdXlxa2F6dGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MTMxMTYsImV4cCI6MjA3MTA4OTExNn0.XegR7Cm3yBBVGwxtax1Dv9kDhuMoQRgS-NbFrv8dt68';
     let supabaseClient;
     let currentUser = null;
+    let allUsers = [];
+    let allTransactions = [];
+    let favorites = [];
     const HUF = new Intl.NumberFormat('hu-HU');
 
-    // Magyar idő formázó – mindig Europe/Budapest, nincs -2 óra csúszás
-    const HU_TIME = new Intl.DateTimeFormat('hu-HU', { timeZone: 'Europe/Budapest', dateStyle: 'short', timeStyle: 'medium' });
+    // Javított időformázás - UTC-ből CET/CEST-be konvertálás (2 óra hozzáadva)
     function formatHU(dateStrOrDate) {
       const d = (dateStrOrDate instanceof Date) ? dateStrOrDate : new Date(dateStrOrDate);
-      return HU_TIME.format(d);
+      // Hozzáadunk 2 órát a helyes magyar időért
+      const corrected = new Date(d.getTime() + (2 * 60 * 60 * 1000));
+      return corrected.toLocaleString('hu-HU', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
     }
 
     function show(el){ el.classList.remove('hidden'); }
@@ -188,6 +336,7 @@
     window.addEventListener('load', async () => {
       try {
         supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        await initDatabase(); // Ensure tables exist
         hide(byId('loadingScreen'));
         show(byId('authForms'));
         showTab('loginForm');
@@ -197,14 +346,29 @@
       }
     });
 
+    // Initialize database tables if they don't exist
+    async function initDatabase() {
+      // Check if favorites table exists, if not we'll work with localStorage
+      try {
+        await supabaseClient.from('favorites').select('*').limit(1);
+      } catch (e) {
+        console.log('Favorites táblázat nem elérhető, localStorage-t használunk');
+      }
+    }
+
     /* ===== Auth UI ===== */
     function showTab(tab) {
       ['loginForm','registrationForm'].forEach(id=>hide(byId(id)));
       show(byId(tab));
     }
     function showUserTab(tabId) {
-      ['transferTab','requestTab','directoryTab'].forEach(id=>hide(byId(id)));
+      ['transferTab','requestTab','directoryTab','favoritesTab','settingsTab','statsTab'].forEach(id=>hide(byId(id)));
       show(byId(tabId));
+      
+      // Load specific data when tabs are shown
+      if (tabId === 'favoritesTab') loadFavorites();
+      if (tabId === 'statsTab') loadDetailedStats();
+      if (tabId === 'settingsTab') loadUserSettings();
     }
 
     /* ===== Auth actions ===== */
@@ -234,27 +398,112 @@
       if(error || !user){ notify('Hibás kártyaszám vagy PIN.', 'error'); return; }
       currentUser = user;
       hide(byId('authForms')); show(byId('bankInterface'));
+      
       // Fill info
       byId('displayName').textContent = user.name;
       byId('displayCardNumber').textContent = user.card_number;
       byId('balance').textContent = HUF.format(user.balance);
-      // Load screens
+      
+      // Load data
       await Promise.all([loadTransactions(), loadDirectory()]);
+      loadFavoritesFromStorage();
+      loadUserSettings();
+      
       if(user.is_admin){ showAdmin(); } else { hide(byId('adminPanel')); }
     }
 
     function logout(){
       currentUser = null;
+      allUsers = [];
+      allTransactions = [];
+      favorites = [];
       hide(byId('bankInterface')); show(byId('authForms')); showTab('loginForm');
       notify('Kijelentkezve.', 'info');
     }
 
+    /* ===== QR Code Generator ===== */
+    function generateQR() {
+      const qrDiv = byId('qrcode');
+      qrDiv.innerHTML = '';
+      
+      const qrData = {
+        type: 'knb_transfer',
+        name: currentUser.name,
+        card: currentUser.card_number,
+        bank: 'KNB'
+      };
+      
+      try {
+        new QRCode(qrDiv, {
+          text: JSON.stringify(qrData),
+          width: 150,
+          height: 150,
+          colorDark: "#660066",
+          colorLight: "#ffffff"
+        });
+        byId('qrDescription').textContent = 'Alap QR kód - mások tudnak neked pénzt küldeni';
+        notify('Alap QR kód generálva!', 'success');
+      } catch (e) {
+        notify('QR kód generálási hiba.', 'error');
+      }
+    }
+    
+    function showQRAmountInput() {
+      const input = byId('qrAmountInput');
+      input.style.display = input.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    function generateQRWithSpecificAmount() {
+      const amount = parseFloat(byId('qrRequestAmount').value);
+      if (!amount || amount <= 0) {
+        notify('Adj meg érvényes összeget!', 'error');
+        return;
+      }
+      
+      const qrDiv = byId('qrcode');
+      qrDiv.innerHTML = '';
+      
+      const qrData = {
+        type: 'knb_payment_request',
+        name: currentUser.name,
+        card: currentUser.card_number,
+        amount: amount,
+        bank: 'KNB',
+        message: `${currentUser.name} ${amount} JG-t kér tőled`
+      };
+      
+      try {
+        new QRCode(qrDiv, {
+          text: JSON.stringify(qrData),
+          width: 150,
+          height: 150,
+          colorDark: "#660066",
+          colorLight: "#ffffff"
+        });
+        byId('qrDescription').textContent = `Fizetési kérés: ${HUF.format(amount)} JG`;
+        notify('Fizetési QR kód generálva!', 'success');
+        byId('qrAmountInput').style.display = 'none';
+        byId('qrRequestAmount').value = '';
+      } catch (e) {
+        notify('QR kód generálási hiba.', 'error');
+      }
+    }
+    
+    function generateQRWithAmount() {
+      showUserTab('settingsTab');
+      byId('qrAmount').style.display = 'block';
+      byId('qrAmount').focus();
+    }
+
+    /* ===== Quick Amount Functions ===== */
+    function setQuickAmount(amount) {
+      byId('amount').value = amount;
+    }
+
     /* ===== Helpers ===== */
     async function generateUniqueCardNumber(){
-      // KNB + random 6 számjegy
       const make = () => 'KNB' + Math.floor(100000 + Math.random()*900000);
       let card = make();
-      // ütközés ellenőrzés
       let exists = true;
       while(exists){
         const { data } = await supabaseClient.from('users').select('card_number').eq('card_number', card).maybeSingle();
@@ -277,7 +526,9 @@
         .select('*')
         .eq('user_id', currentUser.card_number)
         .order('created_at', { ascending:false });
-      renderTransactions('transactionsList', txs || []);
+      allTransactions = txs || [];
+      renderTransactions('transactionsList', allTransactions);
+      loadStatistics(); // Update stats when transactions load
     }
 
     function renderTransactions(containerId, txs){
@@ -285,7 +536,7 @@
       if(!txs || txs.length===0){ c.innerHTML = '<p class="muted">Nincsenek tranzakciók</p>'; return; }
       c.innerHTML = txs.map(t=>{
         let cls='positive', sign='+';
-        if(t.amount < 0){ cls='negative'; sign=''; } // amount már előjeles
+        if(t.amount < 0){ cls='negative'; sign=''; }
         return `<div class="transaction-item">
           <div><strong>${escapeHtml(t.description||'Tranzakció')}</strong></div>
           <div class="amount ${cls}">${sign}${HUF.format(t.amount)} JG</div>
@@ -295,6 +546,176 @@
       }).join('');
     }
 
+    /* ===== Transaction Filters ===== */
+    function filterTransactions() {
+      const typeFilter = byId('typeFilter').value;
+      const dateFilter = byId('dateFilter').value;
+      
+      let filtered = [...allTransactions];
+      
+      // Type filter
+      if (typeFilter) {
+        filtered = filtered.filter(t => t.transaction_type === typeFilter);
+      }
+      
+      // Date filter
+      if (dateFilter) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        filtered = filtered.filter(t => {
+          const tDate = new Date(t.created_at);
+          
+          switch(dateFilter) {
+            case 'today':
+              return tDate >= today;
+            case 'week':
+              const weekStart = new Date(today);
+              weekStart.setDate(today.getDate() - today.getDay());
+              return tDate >= weekStart;
+            case 'month':
+              const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+              return tDate >= monthStart;
+            default:
+              return true;
+          }
+        });
+      }
+      
+      renderTransactions('transactionsList', filtered);
+    }
+
+    /* ===== Statistics ===== */
+    function loadStatistics() {
+      const stats = calculateStats(allTransactions);
+      displayStats(stats);
+    }
+
+    function calculateStats(txs) {
+      const thisMonth = txs.filter(t => {
+        const tDate = new Date(t.created_at);
+        const now = new Date();
+        return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+      });
+      
+      const thisWeek = txs.filter(t => {
+        const tDate = new Date(t.created_at);
+        const now = new Date();
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        return tDate >= weekStart;
+      });
+
+      return {
+        totalTransactions: txs.length,
+        monthlyTransactions: thisMonth.length,
+        weeklyTransactions: thisWeek.length,
+        totalSent: txs.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0),
+        totalReceived: txs.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0),
+        monthlySpent: thisMonth.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0),
+        monthlyReceived: thisMonth.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)
+      };
+    }
+
+    function displayStats(stats) {
+      // Mini stats for user info
+      show(byId('statsPanel'));
+      byId('statsGrid').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${stats.totalTransactions}</div>
+          <div class="stat-label">Összes tranzakció</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${stats.monthlyTransactions}</div>
+          <div class="stat-label">Havi tranzakció</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${HUF.format(stats.monthlySpent)} JG</div>
+          <div class="stat-label">Havi kiadás</div>
+        </div>
+      `;
+    }
+
+    function loadDetailedStats() {
+      const stats = calculateStats(allTransactions);
+      byId('detailedStats').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-value">${stats.totalTransactions}</div>
+          <div class="stat-label">Összes tranzakció</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${HUF.format(stats.totalSent)} JG</div>
+          <div class="stat-label">Összes küldött</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${HUF.format(stats.totalReceived)} JG</div>
+          <div class="stat-label">Összes kapott</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${stats.monthlyTransactions}</div>
+          <div class="stat-label">Havi tranzakció</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${HUF.format(stats.monthlySpent)} JG</div>
+          <div class="stat-label">Havi kiadás</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${HUF.format(stats.monthlyReceived)} JG</div>
+          <div class="stat-label">Havi bevétel</div>
+        </div>
+      `;
+    }
+
+    /* ===== Favorites System ===== */
+    function loadFavoritesFromStorage() {
+      const stored = localStorage.getItem(`knb_favorites_${currentUser.card_number}`);
+      favorites = stored ? JSON.parse(stored) : [];
+    }
+
+    function saveFavoritesToStorage() {
+      localStorage.setItem(`knb_favorites_${currentUser.card_number}`, JSON.stringify(favorites));
+    }
+
+    function toggleFavorite(cardNumber, name) {
+      const index = favorites.findIndex(f => f.card_number === cardNumber);
+      if (index >= 0) {
+        favorites.splice(index, 1);
+        notify(`${name} eltávolítva a kedvencekből`, 'info');
+      } else {
+        favorites.push({ card_number: cardNumber, name: name });
+        notify(`${name} hozzáadva a kedvencekhez`, 'success');
+      }
+      saveFavoritesToStorage();
+      loadDirectory(); // Refresh the directory to update hearts
+      if (byId('favoritesTab').classList.contains('hidden') === false) {
+        loadFavorites(); // Refresh favorites if we're viewing them
+      }
+    }
+
+    function isFavorite(cardNumber) {
+      return favorites.some(f => f.card_number === cardNumber);
+    }
+
+    function loadFavorites() {
+      const list = byId('favoritesList');
+      if (favorites.length === 0) {
+        list.innerHTML = '<p class="muted">Még nincsenek kedvenc felhasználók.</p>';
+        return;
+      }
+      list.innerHTML = favorites.map(f => `
+        <div class="list-item">
+          <div>
+            <strong>${escapeHtml(f.name)}</strong> 
+            <span class="badge">${escapeHtml(f.card_number)}</span>
+          </div>
+          <div class="actions">
+            <button onclick="prefillTransfer('${f.card_number}')">Küldés neki</button>
+            <button onclick="toggleFavorite('${f.card_number}', '${escapeHtml(f.name)}')" class="small">Eltávolítás</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
     /* ===== Directory (user) ===== */
     async function loadDirectory(){
       const { data: users } = await supabaseClient
@@ -302,18 +723,55 @@
         .select('name, card_number')
         .neq('card_number', currentUser.card_number)
         .order('name', { ascending:true });
-      const list = byId('directoryList');
-      if(!users || users.length===0){ list.innerHTML = '<p class="muted">Még nincsenek más felhasználók.</p>'; return; }
-      list.innerHTML = users.map(u=>`
-        <div class="list-item">
-          <div><strong>${escapeHtml(u.name)}</strong> <span class="badge">${escapeHtml(u.card_number)}</span></div>
-          <div class="actions">
-            <button onclick="prefillTransfer('${u.card_number}')">Küldés neki</button>
-          </div>
-        </div>
-      `).join('');
+      allUsers = users || [];
+      renderDirectory(allUsers);
+      updateRecipientSuggestions();
     }
-    function prefillTransfer(card){ showUserTab('transferTab'); byId('recipientCard').value = card; }
+
+    function renderDirectory(users) {
+      const list = byId('directoryList');
+      if(!users || users.length===0){ 
+        list.innerHTML = '<p class="muted">Még nincsenek más felhasználók.</p>'; 
+        return; 
+      }
+      list.innerHTML = users.map(u=>{
+        const heartClass = isFavorite(u.card_number) ? 'heart favorited' : 'heart';
+        return `
+          <div class="list-item">
+            <div>
+              <strong>${escapeHtml(u.name)}</strong> 
+              <span class="badge">${escapeHtml(u.card_number)}</span>
+              <span class="${heartClass}" onclick="toggleFavorite('${u.card_number}', '${escapeHtml(u.name)}')" title="Kedvencekhez adás/eltávolítás">♥</span>
+            </div>
+            <div class="actions">
+              <button onclick="prefillTransfer('${u.card_number}')">Küldés neki</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateRecipientSuggestions() {
+      const datalist = byId('recipientSuggestions');
+      datalist.innerHTML = allUsers.map(u => 
+        `<option value="${u.card_number}">${u.name}</option>`
+      ).join('');
+    }
+
+    function filterUsers() {
+      const query = byId('userSearch').value.toLowerCase();
+      const filtered = allUsers.filter(u => 
+        u.name.toLowerCase().includes(query) || 
+        u.card_number.toLowerCase().includes(query)
+      );
+      renderDirectory(filtered);
+    }
+
+    function prefillTransfer(card){ 
+      showUserTab('transferTab'); 
+      byId('recipientCard').value = card; 
+      byId('amount').focus();
+    }
 
     /* ===== Money transfer / request (user) ===== */
     async function transfer(){
@@ -334,11 +792,19 @@
       await recordTransaction(currentUser.card_number, 'transfer_sent', -amount, `Átutalás ${recipient.name} részére`, recipient.card_number);
       await recordTransaction(recipient.card_number, 'transfer_received', amount, `Átutalás ${currentUser.name}-tól`, currentUser.card_number);
 
+      // Email értesítés küldése (ha be van kapcsolva)
+      await sendEmailNotification(recipient, 'transfer_received', {
+        amount: amount,
+        from: currentUser.name,
+        fromCard: currentUser.card_number
+      });
+
       currentUser.balance -= amount;
       byId('balance').textContent = HUF.format(currentUser.balance);
       await loadTransactions();
       notify('Átutalás sikeres.', 'success');
       byId('amount').value = '';
+      byId('recipientCard').value = '';
     }
 
     async function requestMoney(){
@@ -349,7 +815,6 @@
         user_id: currentUser.card_number, user_name: currentUser.name,
         amount, reason, status: 'pending'
       });
-      // fontos: itt NEM 0-t írunk be, hanem a kért összeget
       await recordTransaction(currentUser.card_number, 'money_request', amount, `Pénzkérés: ${reason}`, 'admin');
       await loadTransactions();
       notify('Pénzkérés elküldve.', 'success');
@@ -395,7 +860,7 @@
     }
 
     function filterAdminUsers(){
-      const q = byId('userSearch').value.toLowerCase();
+      const q = byId('adminUserSearch').value.toLowerCase();
       const filtered = _adminUsersCache.filter(u =>
         u.name.toLowerCase().includes(q) || u.card_number.toLowerCase().includes(q)
       );
@@ -459,6 +924,14 @@
       await supabaseClient.from('users').update({ balance: u.balance + amount }).eq('card_number', user_id);
       // transactions
       await recordTransaction(user_id, 'request_approved', amount, `Kérelem jóváhagyva (${currentUser.name})`, currentUser.card_number);
+      
+      // Email értesítés
+      const { data: requestUser } = await supabaseClient.from('users').select('*').eq('card_number', user_id).single();
+      await sendEmailNotification(requestUser, 'request_approved', {
+        amount: amount,
+        approver: currentUser.name
+      });
+      
       notify(`Kérelem jóváhagyva: ${user_name}`, 'success');
       await Promise.all([loadRequests(), loadAdminUsers(), loadAdminTransactions()]);
     }
@@ -480,6 +953,96 @@
     }
 
     /* ===== Utils ===== */
+    function loadUserSettings() {
+      const email = localStorage.getItem(`knb_email_${currentUser.card_number}`);
+      const notifications = localStorage.getItem(`knb_notifications_${currentUser.card_number}`) === 'true';
+      
+      if (email) byId('userEmail').value = email;
+      byId('emailNotifications').checked = notifications;
+    }
+    
+    function saveEmail() {
+      const email = byId('userEmail').value.trim();
+      if (!email || !isValidEmail(email)) {
+        notify('Érvényes email címet adj meg!', 'error');
+        return;
+      }
+      
+      localStorage.setItem(`knb_email_${currentUser.card_number}`, email);
+      notify('Email cím mentve!', 'success');
+    }
+    
+    function toggleEmailNotifications() {
+      const enabled = byId('emailNotifications').checked;
+      localStorage.setItem(`knb_notifications_${currentUser.card_number}`, enabled);
+      
+      if (enabled && !byId('userEmail').value.trim()) {
+        notify('Először add meg az email címed!', 'warning');
+        byId('emailNotifications').checked = false;
+        return;
+      }
+      
+      notify(`Email értesítések ${enabled ? 'bekapcsolva' : 'kikapcsolva'}`, 'info');
+    }
+    
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    
+    async function sendEmailNotification(user, type, data) {
+      // Ellenőrizzük, hogy van-e email és be van-e kapcsolva az értesítés
+      const userEmail = localStorage.getItem(`knb_email_${user.card_number}`);
+      const notificationsEnabled = localStorage.getItem(`knb_notifications_${user.card_number}`) === 'true';
+      
+      if (!userEmail || !notificationsEnabled) return;
+      
+      let subject, message;
+      
+      switch(type) {
+        case 'transfer_received':
+          subject = 'KNB Bank - Bejövő átutalás';
+          message = `
+            <h2>Pénz érkezett a számlájára!</h2>
+            <p><strong>Küldő:</strong> ${data.from} (${data.fromCard})</p>
+            <p><strong>Összeg:</strong> ${HUF.format(data.amount)} JG</p>
+            <p><strong>Időpont:</strong> ${formatHU(new Date())}</p>
+            <hr>
+            <p><em>KNB Bank - Az Ön megbízható bankja</em></p>
+          `;
+          break;
+        case 'request_approved':
+          subject = 'KNB Bank - Pénzkérés jóváhagyva';
+          message = `
+            <h2>Pénzkérése jóváhagyásra került!</h2>
+            <p><strong>Jóváhagyta:</strong> ${data.approver}</p>
+            <p><strong>Összeg:</strong> ${HUF.format(data.amount)} JG</p>
+            <p><strong>Időpont:</strong> ${formatHU(new Date())}</p>
+            <hr>
+            <p><em>KNB Bank - Az Ön megbízható bankja</em></p>
+          `;
+          break;
+      }
+      
+      // Valós emailben ez egy API hívás lenne (pl. EmailJS, SendGrid, stb.)
+      // Most szimulálunk egy email küldést
+      try {
+        // Szimuláció - valóságban itt történne az email küldés
+        console.log(`📧 Email küldés szimulálva:`);
+        console.log(`Címzett: ${userEmail}`);
+        console.log(`Tárgy: ${subject}`);
+        console.log(`Tartalom: ${message}`);
+        
+        // Ha valós email küldést akarnánk, itt használhatnánk pl. EmailJS-t:
+        // await emailjs.send('service_id', 'template_id', {
+        //   to_email: userEmail,
+        //   subject: subject,
+        //   message: message
+        // });
+        
+      } catch (error) {
+        console.error('Email küldési hiba:', error);
+      }
+    }
     function escapeHtml(s=''){
       return s.replace(/[&<>"']/g, m=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[m]));
     }
