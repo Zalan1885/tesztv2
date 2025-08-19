@@ -169,13 +169,21 @@
     let currentUser = null;
     const HUF = new Intl.NumberFormat('hu-HU');
 
+    // Magyar idő formázó – mindig Europe/Budapest, nincs -2 óra csúszás
+    const HU_TIME = new Intl.DateTimeFormat('hu-HU', { timeZone: 'Europe/Budapest', dateStyle: 'short', timeStyle: 'medium' });
     function formatHU(dateStrOrDate) {
-  const d = (dateStrOrDate instanceof Date) ? dateStrOrDate : new Date(dateStrOrDate);
-  // UTC → magyar idő (+2 óra)
-  const corrected = new Date(d.getTime() + (2 * 60 * 60 * 1000));
-  return corrected.toLocaleString('hu-HU');
-}
+      const d = (dateStrOrDate instanceof Date) ? dateStrOrDate : new Date(dateStrOrDate);
+      return HU_TIME.format(d);
+    }
 
+    function show(el){ el.classList.remove('hidden'); }
+    function hide(el){ el.classList.add('hidden'); }
+    function byId(id){ return document.getElementById(id); }
+    function notify(msg, type='info'){
+      const n = byId('notification');
+      n.textContent = msg; n.className = `notification ${type}`; n.style.display = 'block';
+      setTimeout(()=> n.style.display='none', 3500);
+    }
 
     window.addEventListener('load', async () => {
       try {
