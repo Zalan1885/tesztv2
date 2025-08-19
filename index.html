@@ -31,8 +31,8 @@
     .row { display:flex; gap:20px; }
     .col { flex:1; }
     #userInfo { padding:12px; border:1px solid var(--brand); border-radius:6px; position: relative; }
-    .tab-buttons { display:flex; gap:10px; margin:16px 0; }
-    .tab-buttons button { flex:1; }
+    .tab-buttons { display:flex; gap:10px; margin:16px 0; flex-wrap: wrap; }
+    .tab-buttons button { flex:1; min-width: 120px; }
     .panel { padding:12px; border:1px solid var(--brand); border-radius:6px; background:#fafafa; }
     .transactions-panel { max-height:600px; overflow:auto; }
     .transaction-item {
@@ -90,6 +90,10 @@
     
     /* Quick amounts */
     .quick-amounts { display:flex; gap:8px; margin:10px 0; justify-content:center; flex-wrap:wrap; }
+    
+    /* QR Reader */
+    #qr-reader { border: 2px solid var(--brand); border-radius: 8px; overflow: hidden; }
+    #qr-reader-results { margin-top: 15px; }
   </style>
 </head>
 <body>
@@ -163,6 +167,7 @@
             <button onclick="showUserTab('favoritesTab')" id="t4">Kedvencek</button>
             <button onclick="showUserTab('settingsTab')" id="t5">Beállítások</button>
             <button onclick="showUserTab('statsTab')" id="t6">Statisztikák</button>
+            <button onclick="showUserTab('qrReaderTab')" id="t7">QR Olvasó</button>
           </div>
 
           <!-- Transfer -->
@@ -171,14 +176,15 @@
             <div class="form-group">
               <input type="text" id="recipientCard" placeholder="Címzett kártyaszáma" list="recipientSuggestions">
               <datalist id="recipientSuggestions"></datalist>
+              <button class="small" onclick="startQRScannerForTransfer()" style="margin-top: 8px;">QR kód beolvasása</button>
             </div>
             <div class="form-group">
               <input type="number" id="amount" placeholder="Összeg (JG)">
               <div class="quick-amounts">
-                <button class="quick-amount" onclick="setQuickAmount(500)">500</button>
-                <button class="quick-amount" onclick="setQuickAmount(1000)">1K</button>
-                <button class="quick-amount" onclick="setQuickAmount(2000)">2K</button>
-                <button class="quick-amount" onclick="setQuickAmount(5000)">5K</button>
+                <button class="quick-amount" onclick="setQuickAmount(5)">5</button>
+                <button class="quick-amount" onclick="setQuickAmount(10)">10</button>
+                <button class="quick-amount" onclick="setQuickAmount(15)">15</button>
+                <button class="quick-amount" onclick="setQuickAmount(20)">20</button>
               </div>
             </div>
             <button onclick="transfer()">Átutalás</button>
@@ -240,6 +246,15 @@
             <div class="stats-grid" id="detailedStats"></div>
           </div>
 
+          <!-- QR Reader Tab -->
+          <div id="qrReaderTab" class="panel hidden">
+            <h3>QR Kód Olvasó</h3>
+            <div id="qr-reader" style="width: 100%; margin: 10px 0;"></div>
+            <div id="qr-reader-results"></div>
+            <button onclick="startQRScanner()" id="startScannerBtn">Scanner indítása</button>
+            <button onclick="stopQRScanner()" id="stopScannerBtn" class="hidden">Scanner leállítása</button>
+          </div>
+
           <button onclick="logout()" style="margin-top:16px;">Kijelentkezés</button>
         </div>
 
@@ -297,6 +312,18 @@
 
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <!-- QR Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  
+  <!-- EmailJS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3.2.0/dist/email.min.js"></script>
+  <script>
+    // EmailJS inicializálása - cseréld le a saját kulcsaiddal
+    (function() {
+      emailjs.init("qIzaZIXEm7JbFO0xK");
+    })();
+  </script>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
@@ -309,6 +336,7 @@
     let allTransactions = [];
     let favorites = [];
     const HUF = new Intl.NumberFormat('hu-HU');
+    let html5QrcodeScanner = null;
 
     // Javított időformázás - UTC-ből CET/CEST-be konvertálás (2 óra hozzáadva)
     function formatHU(dateStrOrDate) {
@@ -362,13 +390,115 @@
       show(byId(tab));
     }
     function showUserTab(tabId) {
-      ['transferTab','requestTab','directoryTab','favoritesTab','settingsTab','statsTab'].forEach(id=>hide(byId(id)));
+      // Stop QR scanner if it's running when switching tabs
+      if (tabId !== 'qrReaderTab') {
+        stopQRScanner();
+      }
+      
+      ['transferTab','requestTab','directoryTab','favoritesTab','settingsTab','statsTab','qrReaderTab'].forEach(id=>hide(byId(id)));
       show(byId(tabId));
       
       // Load specific data when tabs are shown
       if (tabId === 'favoritesTab') loadFavorites();
       if (tabId === 'statsTab') loadDetailedStats();
       if (tabId === 'settingsTab') loadUserSettings();
+    }
+
+    /* ===== QR Code Scanner Functions ===== */
+    function startQRScanner() {
+      const scannerDiv = document.getElementById('qr-reader');
+      const startBtn = document.getElementById('startScannerBtn');
+      const stopBtn = document.getElementById('stopScannerBtn');
+      
+      // Clear previous results
+      document.getElementById('qr-reader-results').innerHTML = '';
+      
+      // Scanner inicializálása
+      html5QrcodeScanner = new Html5Qrcode("qr-reader");
+      
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText, decodedResult) => {
+          // QR kód sikeresen beolvasva
+          handleScannedQRCode(decodedText);
+        },
+        (errorMessage) => {
+          // Hiba esetén
+          console.log(`QR Code error: ${errorMessage}`);
+        }
+      ).catch((err) => {
+        console.error(`Unable to start scanning: ${err}`);
+        notify('Nem sikerült elindítani a kamerát. Ellenőrizze a jogosultságokat.', 'error');
+      });
+      
+      // Gombok állapotának frissítése
+      startBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+    }
+
+    function stopQRScanner() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then((ignore) => {
+          // Scanner leállítva
+          console.log("QR Scanner stopped");
+        }).catch((err) => {
+          console.error("Failed to stop scanner: ", err);
+        });
+      }
+      
+      // Gombok állapotának frissítése
+      document.getElementById('startScannerBtn').classList.remove('hidden');
+      document.getElementById('stopScannerBtn').classList.add('hidden');
+    }
+
+    function startQRScannerForTransfer() {
+      showUserTab('qrReaderTab');
+      setTimeout(startQRScanner, 300); // Kis késleltetés, hogy látszódjon a tab
+    }
+
+    function handleScannedQRCode(qrData) {
+      const resultDiv = document.getElementById('qr-reader-results');
+      
+      try {
+        const qrObject = JSON.parse(qrData);
+        
+        if (qrObject.type === 'knb_transfer') {
+          resultDiv.innerHTML = `
+            <div class="notification info">
+              <p>Átutalás azonosítva: ${qrObject.name}</p>
+              <p>Kártyaszám: ${qrObject.card}</p>
+              <button onclick="prefillTransfer('${qrObject.card}')">Átutalás indítása</button>
+            </div>
+          `;
+          stopQRScanner();
+        } 
+        else if (qrObject.type === 'knb_payment_request') {
+          resultDiv.innerHTML = `
+            <div class="notification info">
+              <p>Fizetési kérés: ${qrObject.name}</p>
+              <p>Összeg: ${HUF.format(qrObject.amount)} JG</p>
+              <p>Üzenet: ${qrObject.message || 'Nincs üzenet'}</p>
+              <button onclick="prefillTransferWithAmount('${qrObject.card}', ${qrObject.amount})">Fizetés</button>
+            </div>
+          `;
+          stopQRScanner();
+        } 
+        else {
+          resultDiv.innerHTML = `<p class="notification error">Ismeretlen QR kód formátum</p>`;
+        }
+      } catch (e) {
+        resultDiv.innerHTML = `<p class="notification error">Érvénytelen QR kód: ${qrData}</p>`;
+      }
+    }
+
+    function prefillTransferWithAmount(card, amount) {
+      showUserTab('transferTab');
+      byId('recipientCard').value = card;
+      byId('amount').value = amount;
     }
 
     /* ===== Auth actions ===== */
@@ -413,6 +543,9 @@
     }
 
     function logout(){
+      // Stop QR scanner if running
+      stopQRScanner();
+      
       currentUser = null;
       allUsers = [];
       allTransactions = [];
@@ -996,12 +1129,17 @@
       
       if (!userEmail || !notificationsEnabled) return;
       
-      let subject, message;
+      let templateParams = {
+        to_email: userEmail,
+        from_name: "KNB Bank",
+        from_email: "informacio.knb@gmail.com",
+        reply_to: "informacio.knb@gmail.com"
+      };
       
       switch(type) {
         case 'transfer_received':
-          subject = 'KNB Bank - Bejövő átutalás';
-          message = `
+          templateParams.subject = 'KNB Bank - Bejövő átutalás';
+          templateParams.message = `
             <h2>Pénz érkezett a számlájára!</h2>
             <p><strong>Küldő:</strong> ${data.from} (${data.fromCard})</p>
             <p><strong>Összeg:</strong> ${HUF.format(data.amount)} JG</p>
@@ -1009,10 +1147,11 @@
             <hr>
             <p><em>KNB Bank - Az Ön megbízható bankja</em></p>
           `;
+          templateParams.template_id = "transfer_template";
           break;
         case 'request_approved':
-          subject = 'KNB Bank - Pénzkérés jóváhagyva';
-          message = `
+          templateParams.subject = 'KNB Bank - Pénzkérés jóváhagyva';
+          templateParams.message = `
             <h2>Pénzkérése jóváhagyásra került!</h2>
             <p><strong>Jóváhagyta:</strong> ${data.approver}</p>
             <p><strong>Összeg:</strong> ${HUF.format(data.amount)} JG</p>
@@ -1020,29 +1159,18 @@
             <hr>
             <p><em>KNB Bank - Az Ön megbízható bankja</em></p>
           `;
+          templateParams.template_id = "request_approved_template";
           break;
       }
       
-      // Valós emailben ez egy API hívás lenne (pl. EmailJS, SendGrid, stb.)
-      // Most szimulálunk egy email küldést
       try {
-        // Szimuláció - valóságban itt történne az email küldés
-        console.log(`📧 Email küldés szimulálva:`);
-        console.log(`Címzett: ${userEmail}`);
-        console.log(`Tárgy: ${subject}`);
-        console.log(`Tartalom: ${message}`);
-        
-        // Ha valós email küldést akarnánk, itt használhatnánk pl. EmailJS-t:
-        // await emailjs.send('service_id', 'template_id', {
-        //   to_email: userEmail,
-        //   subject: subject,
-        //   message: message
-        // });
-        
+        await emailjs.send('service_ozghnqd', templateParams.template_id, templateParams);
+        console.log('Email sikeresen elküldve');
       } catch (error) {
         console.error('Email küldési hiba:', error);
       }
     }
+    
     function escapeHtml(s=''){
       return s.replace(/[&<>"']/g, m=>({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[m]));
     }
